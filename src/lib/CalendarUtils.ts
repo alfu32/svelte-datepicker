@@ -1,6 +1,6 @@
 export function dateformat(d:number|Date,fmt:string):string {
     let dt=new Date(d);
-    let tokens=fmt.match(/('(\w|\d)+?')|[\/:= .,;-]|(YYYY|MM|WK|DD|WD|HH12|HH24|MI|SS|MLLI|MCRO|NANO|TS|TSMLLI|TSNANO|ISO|TZS|TZH|TZM)/g)
+    let tokens=fmt.match(/(YYYY|MM|WK|DD|WD|HH12|HH24|MI|SS|MLLI|MCRO|NANO|TS|TSMLLI|TSNANO|ISO|TZS|TZH|TZM)|('(\w|\d)+?')|[\/:= .,;-]/g)
     .map(
         token => {
             let val=getTokenStringValue(d,token.toString());
