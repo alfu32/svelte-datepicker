@@ -104,7 +104,7 @@
 </div>
 {:else if type=="dayhour"}
 <div class="wrapper {clazz}">
-    {#each timeWindow.slice(5*60000) as dayHour,ix}
+    {#each timeWindow.slice(15*60000) as dayHour,ix}
         <slot name="dayHour" {dayHour} isSelected={dayHour.contains(currentValue)}>{dateformat(dayHour.start,"HH24:MI")}</slot>
     {/each}
 </div>

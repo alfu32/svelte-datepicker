@@ -71,7 +71,14 @@
     </Calendar>
 
     <h1>Hour/Minute</h1>
-    <Calendar bind:currentValue={value} locale={selectedLocale} type=hourminute/>
+    <Calendar bind:currentValue={value} locale={selectedLocale} type=hourminute class="flexlist">
+      <div class=flexcell class:selected={isSelected} let:isSelected let:hourMinute slot=hourMinute on:keypress on:click={(e)=>{
+        const {Y,M,D,H,MI}=dateToJson(new Date(hourMinute.start));
+        value=modifyDate(new Date(value),{Y,M,D,H,MI}).getTime()
+      }}>
+        {dateformat(hourMinute.start,"HH24:MI")}
+      </div>
+    </Calendar>
     </div>    
   <div class="card">
     <Counter />
