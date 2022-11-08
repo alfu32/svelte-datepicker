@@ -107,3 +107,49 @@ export function snappingTimeInterval(d:number,type:"Y"|"M"|"W"|"D"|"H"|"MI"|"S")
         case "S": return interval(d,1000)
     }
 }
+
+export type JsonDate={Y?:number,M?:number,W?:number,D?:number,H?:number,MI?:number,S?:number,mS?:number}
+export function dateToJson(dt:Date):JsonDate{
+    const yearstart=new Date(dt.getFullYear()+"-01-01")
+    const yearDayStart=yearstart.getDay();
+    const day= dt.getDay()
+    const week = Math.floor((dt.getTime() - yearstart.getTime()-(yearDayStart-day)*24*3600*1000)/3600/24/1000/7)
+    return {
+        Y:dt.getFullYear(),
+        M:dt.getMonth(),
+        W:week,
+        D:dt.getDate(),
+        H:dt.getHours(),
+        MI:dt.getMinutes(),
+        S:dt.getSeconds(),
+        mS:dt.getMilliseconds(),
+    }
+}
+export function jsonToDate(json:JsonDate):Date{
+    const {Y,M,W,D,H,MI,S,mS}=json;
+    const str=`${Y.toString().padStart(4,"0")}-${M.toString().padStart(2,"0")}-${D.toString().padStart(2,"0")} ${H.toString().padStart(2,"0")}:${MI.toString().padStart(2,"0")}:${S.toString().padStart(2,"0")}.${mS.toString().padStart(3,"0")}`
+    
+    const d=new Date()
+    if(Y !== undefined)d.setFullYear(Y);
+    if(M !== undefined)d.setMonth(M);
+    if(D !== undefined)d.setDate(D);
+    if(H !== undefined)d.setHours(H);
+    if(MI !== undefined)d.setMinutes(MI);
+    if(S !== undefined)d.setSeconds(S);
+    if(mS !== undefined)d.setMilliseconds(mS);
+    console.log({json,str,d})
+    return d;
+}
+export function modifyDate(date:Date,json:JsonDate):Date{
+    const {Y,M,W,D,H,MI,S,mS}=json;
+    return jsonToDate({...dateToJson(date),...json})
+}
+
+function test(){
+    const dt = new Date()
+    const json = dateToJson(dt);
+    console.log({test:"CalendarUtils.dateToJson",json})
+    const dateY= jsonToDate({...json,Y:2000})
+    console.log({test:"CalendarUtils.jsonToDate",dateY})
+}
+test();

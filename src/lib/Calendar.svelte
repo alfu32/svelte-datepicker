@@ -1,8 +1,9 @@
 <script lang=ts>
-    import { CalendarInterval, type CalendarLocale, type CalendarType, type Nullable } from "./CalendarTypes";
+    // import { type CalendarInterval, type CalendarLocale, type CalendarType, type Nullable } from "./CalendarTypes";
     import {createEventDispatcher, onMount} from 'svelte'
+    import type { CalendarLocale, CalendarType, Nullable } from './CalendarTypes';
     import { dateformat, getTokenValue, getLocales, snappingTimeInterval } from "./CalendarUtils";
-    import { start_hydrating } from "svelte/internal";
+    import { Interval } from "./Interval";
     let emit=createEventDispatcher();
 
     let clazz:Nullable<string>=null
@@ -15,65 +16,35 @@
     onMount(()=>{
         // console.log(getLocales().map( l => `"${l}"`).join("|"))
         // console.log(getLocales([locale,"en"]).map( l => `"${l}"`).join("|"))
-        console.log({type,timeWindow:timeWindow(type,currentValue)})
+        // console.log({type,timeWindow:timeWindow(type,currentValue)})
     })
-    $: timeWindow2 = CalendarInterval.fromValueAndIntervalType(currentValue,type)
-    const timeWindow=(type,cValue=null)=>{
-        const dt=new Date(cValue||currentValue);
-        const {Y,M,W,D,H,MI,S} = CalendarInterval.getComponents(dt)
-        const lastMonthDay = (y,m) =>{
-            const first=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-01`)
-            const last=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-01`)
-            last.setMonth(last.getMonth()+1)
-            last.setDate(0);
-            return last.getDate()
-        }
-        const monthWeekStartEnd= ((y,m) => {
-            const first=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-01`)
-            const last=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-01`)
-            last.setMonth(last.getMonth()+1)
-            last.setDate(0);
-            first.setDate(first.getDate()-first.getDay()+1)
-            last.setDate(last.getDate()+7-last.getDay()+1)
-            const length=Math.round((last.getTime()-first.getTime())/24/3600/1000)
-            return {first,last,length}
-        })(Y,M)
-        const weekStartEnd= ((y,m,d) => {
-            const first=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-${d} 00:00:00`)
-            const last=new Date(`${y}-${(m+1).toString().padStart(2,"0")}-${d} 23:59:59`)
-            if(first.getDay()===0){
-                first.setDate(first.getDate()-6)
-            }else{
-                first.setDate(first.getDate()-first.getDay()+1)
-            }
-            last.setDate(first.getDate()+6)
-            const length=7
-            return {first,last,length}
-        })(Y,M,D)
-        console.log({monthWeekStartEnd,weekStartEnd})
+    $:timeWindow=getTimeWindow(currentValue)
+    function getTimeWindow(currentValue):Interval{
         switch(type){
-            case "centuryyear": return Array(100).fill({}).map((v,i) => ({
-                start:new Date(`${Y+i-50}-01-01 00:00:00`),
-                end:new Date(`${Y+i-50}-12-31 23:59:59`),
-                isSelected:(d:number|Date)=>{
-                    const dd=new Date(d);
-                    return this.start.getTime()<=dd.getTime() && this.end.getTime()>=dd.getTime()
-                }
-            }))
-            case "yearmonth": return Array(12).fill({}).map((v,i) => ({start:new Date(`${Y}-${(i+1).toString().padStart(2,"0")}-01 00:00:00`),end:new Date(`${Y}-${(i+1).toString().padStart(2,"0")}-${lastMonthDay(Y,i).toString().padStart(2,"0")} 23:59:59`)}))
-            case "monthday": return (Array(monthWeekStartEnd.length).fill({}).map((v,i) => ({start:new Date(monthWeekStartEnd.first.getTime()+i*24*3600*1000),end:new Date(monthWeekStartEnd.first.getTime()+(i+1)*24*3600*1000-1)})))
-            case "weekday": return Array(7).fill({}).map((v,i) => ({start:new Date(weekStartEnd.first.getTime()+i*24*3600*1000),end:new Date(weekStartEnd.first.getTime()+(i+1)*24*3600*1000-1)}))
-            case "dayhour": return Array(24).fill({}).map((v,i) => ({start:new Date(`${Y}-${(M+1).toString().padStart(2,"0")}-${D.toString().padStart(2,"0")} ${i}:00:00`),end:new Date(`${Y}-${(M+1).toString().padStart(2,"0")}-${D.toString().padStart(2,"0")} ${i.toString().padStart(2,"0")}:59:59`)}))
-            case "hourminute":
-            default: return Array(60).fill({}).map((v,i) => ({start:new Date(`${Y}-${M}-${D} ${H}:${i}:00`),end:new Date(`${Y}-${M}-${D} ${H}:${i}:59`)}))
+            case "hourminute":return Interval.hour(new Date(currentValue));
+            case "dayhour":return Interval.day(new Date(currentValue));
+            case "weekday":return Interval.week(new Date(currentValue),locale);
+            case "monthday":{
+                let month = Interval.month(new Date(currentValue))
+                month.start = Interval.week(month.start,locale).start
+                month.end = Interval.week(month.end,locale).end
+                return month;
+            }
+            case "yearmonth":return Interval.year(new Date(currentValue));
+            case "centuryyear":return Interval.century(new Date(currentValue));
         }
     }
-    function getDay(date:number|Date){
-        const dd=new Date(date);
-        return dd.toLocaleDateString(locale,{weekday:"long"})
+    $:daylabels=getDayLabels(locale);
+    function getDayLabels(locale){
+        const dayNames=Interval.week(new Date(currentValue),locale).days().map( d => ({
+            long:d.start.toLocaleDateString(locale,{weekday:"long"}),
+            short:d.start.toLocaleDateString(locale,{weekday:"short"}),
+            narrow:d.start.toLocaleDateString(locale,{weekday:"narrow"}),
+        }))
+        return dayNames;
     }
 </script>
-
+<!--
 <div>
     initialValue : {dateformat(initialValue,`YYYY-MM-DD HH24`)}<sup>{dateformat(initialValue,`MI:SS.MLLI`)}</sup>{dateformat(initialValue,`TZSTZH:TZM`)}
 </div>
@@ -85,56 +56,64 @@
 </div>
 <div>
     locale : {locale}
-</div>  
+</div>
+-->
 {#if type=="centuryyear"}
-    <div>{dateformat(currentValue,'YYYY')}</div>
     <div class="wrapper {clazz}" {style}>
-    <slot name="years-series" timeWindow={timeWindow2.divideInto("year")}>
-        {#each timeWindow(type,currentValue) as interval,ix}
-            <slot name="years-cell" {interval}>{dateformat(interval.start,'YYYY')}</slot>
-        {/each}
-    </slot>
+        <slot name="years" timeWindow={timeWindow}>
+            {#each timeWindow.years() as year,ix}
+                <slot name="year" {year} isSelected={year.contains(currentValue)}>{dateformat(year.start,'YYYY')}</slot>
+            {/each}
+        </slot>
     </div>
 {:else if type=="yearmonth"}
-<div>{dateformat(currentValue,'YYYY-MM')}</div>
 <div class="wrapper {clazz}" {style}>
-<slot name="months-series" timeWindow={timeWindow}>
-    {#each timeWindow(type,currentValue) as interval,ix}
-        <slot name="months-cell" {interval}>{dateformat(interval.start,'YYYY/MM')}</slot>
-    {/each}
-</slot>
+    <slot name="months" timeWindow={timeWindow}>
+        {#each timeWindow.months() as month,ix}
+            <slot name="month" {month} isSelected={month.contains(currentValue)}>{dateformat(month.start,'YYYY/MM')}</slot>
+        {/each}
+    </slot>
 </div>
 {:else if type=="monthday"}
-<div>{dateformat(currentValue,'YYYY-MM-DD')}</div>
 <div class="wrapper {clazz}" {style}>
-<slot name="days-series" timeWindow={timeWindow}>
-    {#each ["L","M","M","J","V","S","D"] as dayLabel}
-        <slot name="daylabel-cell" {dayLabel}>{dayLabel}</slot>
+<slot name="daysOfMonth" daysOfMonth={timeWindow.days()} timeWindow={timeWindow}>
+    {#each daylabels as dayOfMonthLabel}
+        <slot name="dayOfMonthLabel" {dayOfMonthLabel} isSelected={dayOfMonthLabel.long===new Date(currentValue).toLocaleDateString(locale,{weekday:"long"})}>{dayOfMonthLabel.long}</slot>
     {/each}
-    {#each timeWindow(type,currentValue) as interval,ix}
-        <slot name="days-cell" {interval}>{dateformat(interval.start,'YYYY/MM/DD')}</slot>
+    {#each timeWindow.days() as dayOfMonth,ix}
+        <slot name="dayOfMonth" {dayOfMonth}
+            isInside={dayOfMonth.contains(currentValue)}
+            isSelected={dayOfMonth.contains(currentValue)}
+        >{dateformat(dayOfMonth.start,'YYYY/MM/DD')}</slot>
     {/each}
 </slot>
 </div>
 {:else if type=="weekday"}
-<div>{dateformat(currentValue,`YYYY/MM/DD 'week' WK 'day' WD`)}</div>
 <div class="wrapper {clazz}" {style}>
-<slot name="days-series" timeWindow={timeWindow}>
-    {#each timeWindow(type,currentValue) as interval,ix}
+<slot name="daysOfWeek" timeWindow={timeWindow}>
+    {#each timeWindow.days() as dayOfWeek,ix}
     <div>
-        <slot name="daylabel-cell" {interval} dayLabel={getDay(interval.start)}>{getDay(interval.start)}</slot>
-        <slot name="weekdays-cell" {interval}>{dateformat(interval.start,'YYYY/MM/DD')}</slot>
-        {#each timeWindow("dayhour",interval.start) as hour,i}
-            <slot name="dayhour-cell" {hour} {interval}><div>{dateformat(hour.start,'MM HH24:MI')}</div></slot>
+        <slot name="dayOfWeek" {dayOfWeek} isSelected={dayOfWeek.contains(currentValue)}>{dateformat(dayOfWeek.start,'YYYY/MM/DD')}</slot>
+        <slot name="dayOfWeekLabel" {dayOfWeek} isSelected={dayOfWeek.start.toLocaleDateString(locale,{weekday:"long"})===new Date(currentValue).toLocaleDateString(locale,{weekday:"long"})}>{dayOfWeek.start.toLocaleDateString(locale,{"weekday":"long"})}</slot>
+        {#each dayOfWeek.hours() as dayOfWeekHour,i}<!-- slice(14400000) -->
+            <slot name="dayOfWeekHour" {dayOfWeekHour} {dayOfWeek} isSelected={dayOfWeekHour.contains(currentValue)}><div>{dateformat(dayOfWeekHour.start,'MM HH24:MI')}</div></slot>
         {/each}
     </div>
     {/each}
 </slot>
 </div>
 {:else if type=="dayhour"}
-<div>{dateformat(currentValue,'YYYY-MM-DD HH24')}</div>
+<div class="wrapper {clazz}">
+    {#each timeWindow.slice(5*60000) as dayHour,ix}
+        <slot name="dayHour" {dayHour} isSelected={dayHour.contains(currentValue)}>{dateformat(dayHour.start,"HH24:MI")}</slot>
+    {/each}
+</div>
 {:else if type=="hourminute"}
-<div>{dateformat(currentValue,'YYYY-MM-DD HH24:MI:SS')}</div>
+<div class="wrapper {clazz}">
+    {#each timeWindow.minutes() as hourMinute,ix}
+        <slot name="hourMinute" {hourMinute} isSelected={hourMinute.contains(currentValue)}>{dateformat(hourMinute.start,"HH24:MI")}</slot>
+    {/each}
+</div>
 {:else}
 <div>{dateformat(currentValue,'YYYY-MM-DD HH24:MI:SS.MCRO')}</div>
 {/if}
